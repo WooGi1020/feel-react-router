@@ -1,0 +1,11 @@
+{
+  "name": "@repo/api-mocks",
+  "version": "0.0.0",
+  "type": "module",
+  "exports": {
+    "./node": "./src/node.ts"
+  },
+  "dependencies": {
+    "msw": "latest"
+  }
+}
