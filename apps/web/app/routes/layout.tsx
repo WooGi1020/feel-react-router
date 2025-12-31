@@ -1,17 +1,16 @@
 import { Form, Outlet, redirect } from "react-router";
 import type { Route } from "./+types/layout";
-import { getAccessToken } from "~/services/auth.server";
+import { getSessionData } from "~/services/auth.server";
 
 export async function loader({ request }: Route.LoaderArgs) {
   const url = new URL(request.url);
-  const token = await getAccessToken(request);
+  const { accessToken } = await getSessionData(request);
 
-  // 1. 인증이 없는데 로그인 페이지가 아닌 곳에 접근하면 로그인으로 리다이렉트
-  if (!token && url.pathname !== "/login") {
+  if (!accessToken && url.pathname !== "/login") {
     throw redirect("/login");
   }
 
-  return { isAuthenticated: !!token };
+  return { isAuthenticated: !!accessToken };
 }
 
 export default function layout() {

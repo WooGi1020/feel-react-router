@@ -1,86 +1,82 @@
-import { Form, useActionData, useNavigation, redirect } from "react-router";
+import {
+  Form,
+  data,
+  useNavigation,
+  redirect,
+  useActionData,
+} from "react-router";
 import type { Route } from "./+types/home";
-import { getAccessToken } from "~/services/auth.server";
+import { getSessionData } from "~/services/auth.server";
+import { useEffect } from "react";
 
 export async function loader({ request }: Route.LoaderArgs) {
-  const accessToken = await getAccessToken(request);
+  const { accessToken, toast, commitHeader } = await getSessionData(request);
   if (!accessToken) throw redirect("/login");
 
-  const response = await fetch("http://localhost:5173/api/v1/user", {
+  const res = await fetch("http://localhost:5173/api/v1/user", {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
 
-  if (!response.ok) throw redirect("/login");
-  return await response.json();
+  if (!res.ok) throw redirect("/login");
+
+  return data(
+    { ...(await res.json()), toast },
+    {
+      headers: commitHeader ? { "Set-Cookie": commitHeader } : {},
+    }
+  );
 }
 
 export async function action({ request }: Route.ActionArgs) {
-  const accessToken = await getAccessToken(request);
+  const { accessToken } = await getSessionData(request);
   if (!accessToken) throw redirect("/login");
 
   const formData = await request.formData();
-  const updatedData = Object.fromEntries(formData);
-
-  const response = await fetch("http://localhost:5173/api/v1/user", {
+  const res = await fetch("http://localhost:5173/api/v1/user", {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${accessToken}`,
     },
-    body: JSON.stringify(updatedData),
+    body: JSON.stringify(Object.fromEntries(formData)),
   });
 
-  if (!response.ok) return { success: false, message: "수정에 실패했습니다." };
-
-  const data = await response.json();
-  return { success: true, message: "성공적으로 업데이트되었습니다.", data };
+  if (!res.ok) return { success: false, message: "수정 실패" };
+  return { success: true, message: "성공적으로 업데이트되었습니다." };
 }
 
 export default function Home({ loaderData }: Route.ComponentProps) {
   const { name, role, id } = loaderData;
+  const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
-
   const isSubmitting = navigation.state === "submitting";
 
+  useEffect(() => {
+    const message = actionData?.message;
+    if (message) alert(message);
+  }, [actionData]);
+
   return (
-    <div className="w-full max-w-md rounded-2xl shadow-xl p-8 m-auto bg-white relative">
-      <div className="flex items-center justify-between mb-8">
-        <div className="space-y-2">
-          <h1 className="text-2xl font-bold text-gray-900">내 프로필</h1>
-          <p className="text-sm text-gray-500">계정 고유번호: #{id}</p>
-        </div>
-      </div>
-
-      <Form className="space-y-6" method="POST">
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-            이름
-          </label>
-          <input
-            name="name"
-            defaultValue={name}
-            disabled={isSubmitting}
-            className="text-lg font-medium border-b border-gray-200 text-gray-800 pl-0.5 focus:border-blue-600 outline-none transition-colors disabled:bg-gray-50"
-          />
-        </div>
-
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-            역할
-          </label>
-          <input
-            name="role"
-            defaultValue={role}
-            disabled={isSubmitting}
-            className="text-lg font-medium border-b border-gray-200 text-gray-800 pl-0.5 focus:border-blue-600 outline-none transition-colors disabled:bg-gray-50"
-          />
-        </div>
-
+    <div className="w-full max-w-md shadow-xl p-8 m-auto bg-white rounded-2xl">
+      <h1 className="text-2xl font-bold mb-6">프로필 #{id}</h1>
+      <Form method="POST" className="space-y-4">
+        <input
+          name="name"
+          defaultValue={name}
+          disabled={isSubmitting}
+          className="w-full border-b p-2 outline-none focus:border-blue-600"
+        />
+        <input
+          name="role"
+          defaultValue={role}
+          disabled={isSubmitting}
+          className="w-full border-b p-2 outline-none focus:border-blue-600"
+        />
         <button
           disabled={isSubmitting}
-          className="w-full py-3 px-4 bg-gray-900 text-white rounded-xl font-semibold hover:bg-gray-800 transition-all active:scale-[0.98] disabled:bg-gray-400 cursor-pointer disabled:cursor-not-allowed"
+          className="w-full py-3 bg-black text-white rounded-xl disabled:bg-gray-400"
         >
-          {isSubmitting ? "수정 중..." : "정보 수정하기"}
+          {isSubmitting ? "처리 중..." : "정보 수정"}
         </button>
       </Form>
     </div>
